@@ -49,6 +49,9 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signUp({
         email,
         password: senha,
+        options: {
+          emailRedirectTo: "https://provasecret.vercel.app/auth/callback",
+        },
       })
 
       if (error) {
