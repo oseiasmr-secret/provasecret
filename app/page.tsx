@@ -1,8 +1,10 @@
 "use client"
-import { supabase } from "@/lib/supabase-browser"
+
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { carregarHistorico, limparHistorico, salvarNoHistorico } from "@/lib/history"
 import type { SimuladoGerado } from "@/types/simulado"
+import { supabase } from "@/lib/supabase-browser"
 
 type FormData = {
   professor: string
@@ -25,24 +27,65 @@ const initialForm: FormData = {
 }
 
 export default function Page() {
+  const router = useRouter()
+
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [comprando, setComprando] = useState(false)
   const [erroHistorico, setErroHistorico] = useState("")
   const [erroGeracao, setErroGeracao] = useState("")
   const [historico, setHistorico] = useState<SimuladoGerado[]>([])
   const [form, setForm] = useState<FormData>(initialForm)
   const [simuladoGerado, setSimuladoGerado] = useState<string>("")
+  const [usuario, setUsuario] = useState<{
+    id: string
+    email: string | null
+  } | null>(null)
 
   useEffect(() => {
     setMounted(true)
 
-    try {
-      const data = carregarHistorico()
-      setHistorico(data)
-      setErroHistorico("")
-    } catch (error) {
-      console.error(error)
-      setErroHistorico("Erro ao carregar histórico.")
+    async function init() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session?.user) {
+          setUsuario({
+            id: session.user.id,
+            email: session.user.email ?? null,
+          })
+        } else {
+          setUsuario(null)
+        }
+
+        const data = carregarHistorico()
+        setHistorico(data)
+        setErroHistorico("")
+      } catch (error) {
+        console.error(error)
+        setErroHistorico("Erro ao carregar histórico.")
+      }
+    }
+
+    init()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUsuario({
+          id: session.user.id,
+          email: session.user.email ?? null,
+        })
+      } else {
+        setUsuario(null)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
     }
   }, [])
 
@@ -53,30 +96,36 @@ export default function Page() {
     }))
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    setUsuario(null)
+    router.push("/login")
+  }
+
   async function handleGerarSimulado(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setErroGeracao("")
 
     try {
-      
       const {
-           data: { session },
+        data: { session },
       } = await supabase.auth.getSession()
 
       if (!session?.access_token) {
-         setErroGeracao("Você precisa estar logado para gerar um simulado.")
-         setLoading(false)
-         return
+        setErroGeracao("Você precisa estar logado para gerar um simulado.")
+        setLoading(false)
+        return
       }
+
       const response = await fetch("/api/gerar", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${session.access_token}`,
-  },
-  body: JSON.stringify(form),
-})
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(form),
+      })
 
       const data = await response.json()
 
@@ -84,7 +133,7 @@ export default function Page() {
         throw new Error(data?.error || "Erro ao gerar simulado.")
       }
 
-      setSimuladoGerado(data.simulado)
+      setSimuladoGerado(data.simulado || "")
 
       const novoRegistro: SimuladoGerado = {
         id: crypto.randomUUID(),
@@ -113,6 +162,53 @@ export default function Page() {
     }
   }
 
+  async function handleComprarProvaExtra() {
+    try {
+      setComprando(true)
+      setErroGeracao("")
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setErroGeracao("Você precisa estar logado para comprar uma prova extra.")
+        return
+      }
+
+      await fetch("/api/profile/ensure", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Não foi possível iniciar o pagamento.")
+      }
+
+      window.location.href = data.url
+    } catch (error) {
+      console.error(error)
+      setErroGeracao(
+        error instanceof Error ? error.message : "Erro ao iniciar pagamento."
+      )
+    } finally {
+      setComprando(false)
+    }
+  }
+
   function handleLimparHistorico() {
     limparHistorico()
     setHistorico([])
@@ -129,6 +225,47 @@ export default function Page() {
             MVP para geração de simulados com histórico recente.
           </p>
         </header>
+
+        <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+          {usuario ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Usuário logado</p>
+                <p className="text-sm text-neutral-600">{usuario.email}</p>
+                <p className="text-xs text-neutral-500">ID: {usuario.id}</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm"
+                >
+                  Sair
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Você não está logado</p>
+                <p className="text-sm text-neutral-600">
+                  Entre na sua conta para gerar provas e salvar seu histórico.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/login")}
+                  className="rounded-lg bg-black px-4 py-2 text-sm text-white"
+                >
+                  Entrar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
           <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -191,7 +328,7 @@ export default function Page() {
                 <input
                   type="number"
                   min={1}
-                  max={50}
+                  max={20}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none"
                   value={form.quantidadeQuestoes}
                   onChange={(e) => updateField("quantidadeQuestoes", Number(e.target.value))}
@@ -214,16 +351,37 @@ export default function Page() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !usuario}
                 className="rounded-xl bg-black px-4 py-2 text-white disabled:opacity-50"
               >
-                {loading ? "Gerando..." : "Gerar simulado"}
+                {loading ? "Gerando..." : usuario ? "Gerar simulado" : "Faça login para gerar"}
               </button>
             </form>
 
             {erroGeracao && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                {erroGeracao}
+                <p>{erroGeracao}</p>
+
+                {erroGeracao.includes("logado") && (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/login")}
+                    className="mt-3 rounded-lg bg-black px-4 py-2 text-white"
+                  >
+                    Ir para login
+                  </button>
+                )}
+
+                {erroGeracao.includes("prova gratuita de hoje") && (
+                  <button
+                    type="button"
+                    onClick={handleComprarProvaExtra}
+                    disabled={comprando}
+                    className="mt-3 rounded-lg bg-black px-4 py-2 text-white disabled:opacity-50"
+                  >
+                    {comprando ? "Redirecionando..." : "Comprar 1 prova extra"}
+                  </button>
+                )}
               </div>
             )}
 
