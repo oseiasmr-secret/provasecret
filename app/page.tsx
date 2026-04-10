@@ -176,13 +176,19 @@ export default function Page() {
       return
     }
 
-    await fetch("/api/profile/ensure", {
+    const ensureResponse = await fetch("/api/profile/ensure", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
     })
+
+    const ensureData = await ensureResponse.json().catch(() => ({}))
+
+    if (!ensureResponse.ok) {
+      throw new Error(ensureData?.error || "Não foi possível verificar o perfil do usuário.")
+    }
 
     const response = await fetch("/api/checkout", {
       method: "POST",
@@ -192,7 +198,7 @@ export default function Page() {
       },
     })
 
-    const data = await response.json()
+    const data = await response.json().catch(() => ({}))
 
     console.log("Resposta do checkout:", data)
 
@@ -204,9 +210,15 @@ export default function Page() {
       throw new Error("A URL do checkout não foi retornada corretamente.")
     }
 
+    try {
+      new URL(data.url)
+    } catch {
+      throw new Error("A URL do checkout retornada é inválida.")
+    }
+
     window.location.assign(data.url)
   } catch (error) {
-    console.error(error)
+    console.error("Erro ao iniciar checkout:", error)
     setErroGeracao(
       error instanceof Error ? error.message : "Erro ao iniciar pagamento."
     )
