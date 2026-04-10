@@ -127,17 +127,39 @@ export async function POST(request: Request) {
          { status: 401 }
           )
        }
-const { data: profile, error: profileError } = await supabaseAdmin
+let { data: profile, error: profileError } = await supabaseAdmin
   .from("profiles")
-  .select("creditos_prova")
+  .select("id, creditos_prova")
   .eq("id", user.id)
-  .single()
+  .maybeSingle()
 
-if (profileError || !profile) {
+if (profileError) {
+  console.error("Erro ao buscar profile:", profileError)
   return NextResponse.json(
-    { error: "Profile do usuário não encontrado." },
-    { status: 404 }
+    { error: "Não foi possível verificar o perfil do usuário." },
+    { status: 500 }
   )
+}
+
+if (!profile) {
+  const { data: createdProfile, error: createProfileError } = await supabaseAdmin
+    .from("profiles")
+    .insert({
+      id: user.id,
+      creditos_prova: 0,
+    })
+    .select("id, creditos_prova")
+    .single()
+
+  if (createProfileError || !createdProfile) {
+    console.error("Erro ao criar profile:", createProfileError)
+    return NextResponse.json(
+      { error: "Não foi possível criar o perfil do usuário." },
+      { status: 500 }
+    )
+  }
+
+  profile = createdProfile
 }
 
 const inicioHoje = new Date()
