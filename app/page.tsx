@@ -163,51 +163,57 @@ export default function Page() {
   }
 
   async function handleComprarProvaExtra() {
-    try {
-      setComprando(true)
-      setErroGeracao("")
+  try {
+    setComprando(true)
+    setErroGeracao("")
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-      if (!session?.access_token) {
-        setErroGeracao("Você precisa estar logado para comprar uma prova extra.")
-        return
-      }
-
-      await fetch("/api/profile/ensure", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      })
-
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Não foi possível iniciar o pagamento.")
-      }
-
-      window.location.href = data.url
-    } catch (error) {
-      console.error(error)
-      setErroGeracao(
-        error instanceof Error ? error.message : "Erro ao iniciar pagamento."
-      )
-    } finally {
-      setComprando(false)
+    if (!session?.access_token) {
+      setErroGeracao("Você precisa estar logado para comprar uma prova extra.")
+      return
     }
+
+    await fetch("/api/profile/ensure", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    })
+
+    const response = await fetch("/api/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    })
+
+    const data = await response.json()
+
+    console.log("Resposta do checkout:", data)
+
+    if (!response.ok) {
+      throw new Error(data?.error || "Não foi possível iniciar o pagamento.")
+    }
+
+    if (!data?.url || typeof data.url !== "string") {
+      throw new Error("A URL do checkout não foi retornada corretamente.")
+    }
+
+    window.location.assign(data.url)
+  } catch (error) {
+    console.error(error)
+    setErroGeracao(
+      error instanceof Error ? error.message : "Erro ao iniciar pagamento."
+    )
+  } finally {
+    setComprando(false)
   }
+}
 
   function handleLimparHistorico() {
     limparHistorico()

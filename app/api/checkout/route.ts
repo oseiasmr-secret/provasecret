@@ -3,16 +3,34 @@ import Stripe from "stripe"
 import { supabaseServer } from "@/lib/supabase-server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+
+if (!stripeSecretKey) {
+  throw new Error("STRIPE_SECRET_KEY não configurada.")
+}
+
+const stripe = new Stripe(stripeSecretKey)
 
 const VALOR_PROVA_CENTAVOS = 490 // R$ 4,90
+
+function isValidHttpUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === "http:" || url.protocol === "https:"
+  } catch {
+    return false
+  }
+}
 
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization")
 
     if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Usuário não autenticado." }, { status: 401 })
+      return NextResponse.json(
+        { error: "Usuário não autenticado." },
+        { status: 401 }
+      )
     }
 
     const token = authHeader.replace("Bearer ", "").trim()
@@ -23,20 +41,60 @@ export async function POST(request: Request) {
     } = await supabaseServer.auth.getUser(token)
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Sessão inválida." }, { status: 401 })
+      console.error("Erro ao validar usuário:", userError)
+      return NextResponse.json(
+        { error: "Sessão inválida." },
+        { status: 401 }
+      )
     }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()
+
+    if (!appUrl) {
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_APP_URL não configurada." },
+        { status: 500 }
+      )
+    }
+
+    if (!isValidHttpUrl(appUrl)) {
+      console.error("NEXT_PUBLIC_APP_URL inválida:", appUrl)
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_APP_URL inválida." },
+        { status: 500 }
+      )
+    }
+
+    const successUrl = `${appUrl}/?pagamento=sucesso`
+    const cancelUrl = `${appUrl}/?pagamento=cancelado`
+
+    if (!isValidHttpUrl(successUrl) || !isValidHttpUrl(cancelUrl)) {
+      console.error("URLs de retorno inválidas:", { successUrl, cancelUrl })
+      return NextResponse.json(
+        { error: "As URLs de retorno do checkout estão inválidas." },
+        { status: 500 }
+      )
+    }
+
+    console.log("NEXT_PUBLIC_APP_URL:", appUrl)
+    console.log("Success URL:", successUrl)
+    console.log("Cancel URL:", cancelUrl)
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("id, stripe_customer_id")
       .eq("id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (profileError || !profile) {
-      return NextResponse.json({ error: "Profile não encontrado." }, { status: 404 })
+    if (profileError) {
+      console.error("Erro ao buscar profile:", profileError)
+      return NextResponse.json(
+        { error: "Erro ao buscar o perfil do usuário." },
+        { status: 500 }
+      )
     }
 
-    let customerId = profile.stripe_customer_id
+    let customerId: string | null = profile?.stripe_customer_id ?? null
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -48,26 +106,31 @@ export async function POST(request: Request) {
 
       customerId = customer.id
 
-      const { error: updateProfileError } = await supabaseAdmin
+      const { error: upsertProfileError } = await supabaseAdmin
         .from("profiles")
-        .update({
-          stripe_customer_id: customerId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id)
+        .upsert(
+          {
+            id: user.id,
+            stripe_customer_id: customerId,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        )
 
-      if (updateProfileError) {
-        return NextResponse.json({ error: "Erro ao atualizar profile." }, { status: 500 })
+      if (upsertProfileError) {
+        console.error("Erro ao salvar stripe_customer_id no profile:", upsertProfileError)
+        return NextResponse.json(
+          { error: "Erro ao atualizar o perfil do usuário." },
+          { status: 500 }
+        )
       }
     }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: customerId,
-      success_url: `${appUrl}/?pagamento=sucesso`,
-      cancel_url: `${appUrl}/?pagamento=cancelado`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       payment_method_types: ["card"],
       line_items: [
         {
@@ -88,12 +151,31 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({
-      ok: true,
-      url: session.url,
-    })
+    console.log("Checkout session ID:", session.id)
+    console.log("Checkout session URL:", session.url)
+
+    if (!session.url || typeof session.url !== "string") {
+      return NextResponse.json(
+        { error: "O Stripe não retornou a URL do checkout." },
+        { status: 502 }
+      )
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        url: session.url,
+      },
+      { status: 200 }
+    )
   } catch (error) {
     console.error("Erro ao criar checkout:", error)
-    return NextResponse.json({ error: "Erro ao criar checkout." }, { status: 500 })
+
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Erro ao criar checkout.",
+      },
+      { status: 500 }
+    )
   }
 }
