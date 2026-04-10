@@ -185,9 +185,13 @@ export default function Page() {
     })
 
     const ensureData = await ensureResponse.json().catch(() => ({}))
+    console.log("ensureResponse ok:", ensureResponse.ok)
+    console.log("ensureResponse data:", ensureData)
 
     if (!ensureResponse.ok) {
-      throw new Error(ensureData?.error || "Não foi possível verificar o perfil do usuário.")
+      throw new Error(
+        ensureData?.error || "Não foi possível verificar o perfil do usuário."
+      )
     }
 
     const response = await fetch("/api/checkout", {
@@ -200,25 +204,32 @@ export default function Page() {
 
     const data = await response.json().catch(() => ({}))
 
-    console.log("Resposta do checkout:", data)
+    console.log("checkout response ok:", response.ok)
+    console.log("checkout response status:", response.status)
+    console.log("checkout response data:", data)
 
     if (!response.ok) {
       throw new Error(data?.error || "Não foi possível iniciar o pagamento.")
     }
 
-    if (!data?.url || typeof data.url !== "string") {
-      throw new Error("A URL do checkout não foi retornada corretamente.")
+    if (!data || typeof data !== "object") {
+      throw new Error("A resposta do checkout veio em formato inválido.")
     }
 
-    try {
-      new URL(data.url)
-    } catch {
-      throw new Error("A URL do checkout retornada é inválida.")
+    if (!("url" in data)) {
+      throw new Error("A resposta do checkout não trouxe o campo url.")
     }
 
-    window.location.assign(data.url)
+    if (typeof data.url !== "string" || !data.url.trim()) {
+      throw new Error(`URL do checkout inválida: ${String(data.url)}`)
+    }
+
+    console.log("Redirecionando para:", data.url)
+
+    window.location.href = data.url
   } catch (error) {
     console.error("Erro ao iniciar checkout:", error)
+
     setErroGeracao(
       error instanceof Error ? error.message : "Erro ao iniciar pagamento."
     )

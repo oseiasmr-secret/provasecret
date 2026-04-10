@@ -172,10 +172,16 @@ export async function POST(request: Request) {
     console.error("Erro ao criar checkout:", error)
 
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Erro ao criar checkout.",
-      },
-      { status: 500 }
-    )
-  }
+  {
+    ok: true,
+    url: session.url,
+    debug: {
+      appUrl,
+      successUrl,
+      cancelUrl,
+      sessionId: session.id,
+    },
+  },
+  { status: 200 }
+)
 }
