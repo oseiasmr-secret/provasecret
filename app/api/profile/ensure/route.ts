@@ -2,6 +2,10 @@ import { NextResponse } from "next/server"
 import { supabaseServer } from "@/lib/supabase-server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 
+export async function GET() {
+  return NextResponse.json({ ok: true, route: "profile/ensure" })
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization")
 
