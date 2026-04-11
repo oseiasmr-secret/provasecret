@@ -194,7 +194,7 @@ export default function Page() {
       )
     }
 
-    const response = await fetch("/api/checkout", {
+    const response = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
