@@ -251,7 +251,7 @@ export default function Page() {
         <header className="mb-8">
           <h1 className="text-3xl font-bold">Prova Secreta</h1>
           <p className="mt-2 text-sm text-neutral-600">
-            MVP para geração de simulados com histórico recente.
+            Algumas provas não deveriam estar aqui 🗝️
           </p>
         </header>
 
@@ -383,7 +383,7 @@ export default function Page() {
                 disabled={loading || !usuario}
                 className="rounded-xl bg-black px-4 py-2 text-white disabled:opacity-50"
               >
-                {loading ? "Gerando..." : usuario ? "Gerar simulado" : "Faça login para gerar"}
+                {loading ? "rastreando..." : usuario ? "Buscar provas" : "Faça login para encontrar provas"}
               </button>
             </form>
 
