@@ -50,7 +50,7 @@ export default function LoginPage() {
         email,
         password: senha,
         options: {
-          emailRedirectTo: "https://provasecret.vercel.app/auth/callback",
+          emailRedirectTo: "https://provasecret.vercel.app",
         },
       })
 
