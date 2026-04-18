@@ -1,5 +1,6 @@
 "use client"
 
+import { gerarProvaPDF } from "@/lib/pdf/gerarProvaPDF"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { carregarHistorico, limparHistorico, salvarNoHistorico } from "@/lib/history"
@@ -415,11 +416,27 @@ export default function Page() {
             )}
 
             {simuladoGerado && (
-              <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                <h3 className="mb-2 font-semibold">Resultado</h3>
-                <pre className="whitespace-pre-wrap text-sm">{simuladoGerado}</pre>
-              </div>
-            )}
+  <div className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+    <h3 className="mb-3 font-semibold">Resultado</h3>
+
+    <button
+      type="button"
+      onClick={() =>
+        gerarProvaPDF({
+          titulo: "Prova Secreta",
+          subtitulo: "Simulação personalizada de avaliação",
+          simuladoTexto: simuladoGerado,
+          nomeArquivo: `prova-${form.disciplina || "simulado"}.pdf`,
+        })
+      }
+      className="mb-4 rounded-lg bg-black px-4 py-2 text-sm text-white"
+    >
+      📄 Baixar PDF
+    </button>
+
+    <pre className="whitespace-pre-wrap text-sm">{simuladoGerado}</pre>
+  </div>
+)}
           </section>
 
           <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
