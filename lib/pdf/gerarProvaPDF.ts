@@ -1,16 +1,9 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
 
-export type QuestaoPDF = {
-  enunciado: string
-  alternativas: string[]
-}
-
 export type DadosProvaPDF = {
-  titulo: string
-  disciplina?: string
-  serie?: string
-  professor?: string
-  questoes: QuestaoPDF[]
+  titulo?: string
+  subtitulo?: string
+  simuladoTexto: string
   nomeArquivo?: string
 }
 
@@ -77,6 +70,36 @@ export async function gerarProvaPDF(dados: DadosProvaPDF) {
     return linhasFinais
   }
 
+  function isTituloLinha(linha: string) {
+    const texto = linha.trim()
+
+    return (
+      texto === "SIMULADO" ||
+      texto === "GABARITO" ||
+      /^\d+\)/.test(texto)
+    )
+  }
+
+  function isCampoMeta(linha: string) {
+    const texto = linha.trim().toLowerCase()
+
+    return (
+      texto.startsWith("professor:") ||
+      texto.startsWith("escola/faculdade:") ||
+      texto.startsWith("disciplina:") ||
+      texto.startsWith("série/turma:") ||
+      texto.startsWith("serie/turma:") ||
+      texto.startsWith("conteúdo:") ||
+      texto.startsWith("conteudo:") ||
+      texto.startsWith("nível:") ||
+      texto.startsWith("nivel:")
+    )
+  }
+
+  function isAlternativa(linha: string) {
+    return /^[A-E]\)/i.test(linha.trim())
+  }
+
   function drawTextBlock(
     texto: string,
     options?: {
@@ -122,20 +145,19 @@ export async function gerarProvaPDF(dados: DadosProvaPDF) {
       start: { x: margin, y },
       end: { x: pageWidth - margin, y },
       thickness: 1,
-      color: rgb(0.8, 0.8, 0.8),
+      color: rgb(0.85, 0.85, 0.85),
     })
 
     y -= 18
   }
 
-  // Cabeçalho
   drawTextBlock(dados.titulo || "Prova Secreta", {
     size: 22,
     bold: true,
     lineHeight: 28,
   })
 
-  drawTextBlock("Simulação personalizada de avaliação", {
+  drawTextBlock(dados.subtitulo || "Simulação personalizada de avaliação", {
     size: 11,
     lineHeight: 16,
     color: { r: 0.35, g: 0.35, b: 0.35 },
@@ -144,74 +166,60 @@ export async function gerarProvaPDF(dados: DadosProvaPDF) {
   y -= 8
   drawLinhaHorizontal()
 
-  if (dados.disciplina) {
-    drawTextBlock(`Disciplina: ${dados.disciplina}`, {
-      size: 12,
-      lineHeight: 18,
-    })
-  }
+  const linhas = dados.simuladoTexto.split("\n")
 
-  if (dados.serie) {
-    drawTextBlock(`Série: ${dados.serie}`, {
-      size: 12,
-      lineHeight: 18,
-    })
-  }
+  for (const linhaOriginal of linhas) {
+    const linha = linhaOriginal.trim()
 
-  if (dados.professor) {
-    drawTextBlock(`Professor: ${dados.professor}`, {
-      size: 12,
-      lineHeight: 18,
-    })
-  }
-
-  drawTextBlock(`Data de geração: ${new Date().toLocaleDateString("pt-BR")}`, {
-    size: 12,
-    lineHeight: 18,
-  })
-
-  y -= 10
-
-  drawTextBlock(
-    "Instruções: leia atentamente cada questão e assinale apenas uma alternativa.",
-    {
-      size: 11,
-      lineHeight: 16,
+    if (!linha) {
+      y -= 10
+      continue
     }
-  )
 
-  y -= 18
+    if (linha === "SIMULADO" || linha === "GABARITO") {
+      y -= 6
+      drawTextBlock(linha, {
+        size: 16,
+        bold: true,
+        lineHeight: 22,
+      })
+      y -= 4
+      continue
+    }
 
-  // Questões
-  dados.questoes.forEach((questao, index) => {
-    ensureSpace(90)
+    if (/^\d+\)/.test(linha)) {
+      y -= 6
+      drawTextBlock(linha, {
+        size: 13,
+        bold: true,
+        lineHeight: 19,
+      })
+      continue
+    }
 
-    drawTextBlock(`Questão ${index + 1}`, {
-      size: 14,
-      bold: true,
-      lineHeight: 20,
-    })
+    if (isCampoMeta(linha)) {
+      drawTextBlock(linha, {
+        size: 11,
+        lineHeight: 16,
+      })
+      continue
+    }
 
-    drawTextBlock(questao.enunciado, {
-      size: 12,
-      lineHeight: 18,
-    })
-
-    y -= 4
-
-    questao.alternativas.forEach((alternativa, i) => {
-      const letra = String.fromCharCode(65 + i)
-      drawTextBlock(`${letra}) ${alternativa}`, {
+    if (isAlternativa(linha)) {
+      drawTextBlock(linha, {
         size: 12,
         lineHeight: 18,
         indent: 12,
       })
+      continue
+    }
+
+    drawTextBlock(linha, {
+      size: 12,
+      lineHeight: 18,
     })
+  }
 
-    y -= 14
-  })
-
-  // Rodapé com numeração
   const pages = pdfDoc.getPages()
   pages.forEach((currentPage, index) => {
     currentPage.drawLine({
