@@ -384,7 +384,7 @@ export default function Page() {
                 disabled={loading || !usuario}
                 className="rounded-xl bg-black px-4 py-2 text-white disabled:opacity-50"
               >
-                {loading ? " 01 prova encontrada... Rastreando... Aguarde..." : usuario ? "Buscar provas" : "Faça login para encontrar provas"}
+                {loading ? " Rastreando... *01 prova encontrada*... Aguarde..." : usuario ? "Buscar provas" : "Faça login para encontrar provas"}
               </button>
             </form>
 
