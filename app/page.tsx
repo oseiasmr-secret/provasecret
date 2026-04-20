@@ -252,7 +252,7 @@ export default function Page() {
         <header className="mb-8">
           <h1 className="text-3xl font-bold">Prova Secreta</h1>
           <p className="mt-2 text-sm text-neutral-600">
-            Algumas provas não deveriam estar aqui 🗝️
+            Conteúdo exclusivo. Uso restrito ao usuário. Proibido copiar ou compartilhar 🗝️
           </p>
         </header>
 
