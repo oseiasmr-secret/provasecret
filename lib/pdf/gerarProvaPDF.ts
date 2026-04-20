@@ -157,7 +157,7 @@ export async function gerarProvaPDF(dados: DadosProvaPDF) {
     lineHeight: 28,
   })
 
-  drawTextBlock(dados.subtitulo || "Simulação personalizada de avaliação", {
+  drawTextBlock(dados.subtitulo || "Conteúdo exclusivo. Uso restrito ao usuário. Proibido copiar ou compartilhar", {
     size: 11,
     lineHeight: 16,
     color: { r: 0.35, g: 0.35, b: 0.35 },
