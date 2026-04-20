@@ -74,7 +74,7 @@ export async function gerarProvaPDF(dados: DadosProvaPDF) {
     const texto = linha.trim()
 
     return (
-      texto === "SIMULADO" ||
+      texto === "*AVALIAÇÃO*" ||
       texto === "GABARITO" ||
       /^\d+\)/.test(texto)
     )
@@ -176,7 +176,7 @@ export async function gerarProvaPDF(dados: DadosProvaPDF) {
       continue
     }
 
-    if (linha === "SIMULADO" || linha === "GABARITO") {
+    if (linha === "*AVALIAÇÃO*" || linha === "GABARITO") {
       y -= 6
       drawTextBlock(linha, {
         size: 16,
