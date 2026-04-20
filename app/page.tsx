@@ -299,7 +299,7 @@ export default function Page() {
 
         <div className="grid gap-8 lg:grid-cols-2">
           <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-xl font-semibold">Gerar novo simulado</h2>
+            <h2 className="mb-4 text-xl font-semibold">Encontre uma avaliação</h2>
 
             <form onSubmit={handleGerarSimulado} className="space-y-4">
               <div>
@@ -445,7 +445,7 @@ export default function Page() {
                 <p className="text-xs uppercase tracking-wide text-neutral-500">
                   Histórico recente
                 </p>
-                <h2 className="text-xl font-semibold">Últimos simulados gerados</h2>
+                <h2 className="text-xl font-semibold">Últimas provas geradas</h2>
                 <p className="mt-1 text-sm text-neutral-600">
                   Total carregado: {mounted ? totalCarregado : 0}
                 </p>
@@ -465,7 +465,7 @@ export default function Page() {
             ) : erroHistorico ? (
               <p className="text-sm text-red-600">{erroHistorico}</p>
             ) : historico.length === 0 ? (
-              <p className="text-sm text-neutral-500">Nenhum simulado gerado ainda.</p>
+              <p className="text-sm text-neutral-500">Nenhuma prova localizada ainda.</p>
             ) : (
               <div className="space-y-3">
                 {historico.map((item) => (
