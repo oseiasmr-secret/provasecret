@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase-browser"
+import { trackEvent } from "@/lib/trackEvent"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -54,13 +55,15 @@ export default function LoginPage() {
         },
       })
 
-      if (error) {
-        throw new Error(error.message)
-      }
+    if (error) {
+  throw new Error(error.message)
+}
 
-      setMensagem(
-        "Conta criada com sucesso. Verifique seu e-mail para confirmar o cadastro, se necessário."
-      )
+await trackEvent("signup")
+
+setMensagem(
+  "Conta criada com sucesso. Verifique seu e-mail para confirmar o cadastro, se necessário."
+)
     } catch (error) {
       console.error(error)
       setErro(error instanceof Error ? error.message : "Não foi possível criar a conta.")

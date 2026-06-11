@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { carregarHistorico, limparHistorico, salvarNoHistorico } from "@/lib/history"
 import type { SimuladoGerado } from "@/types/simulado"
 import { supabase } from "@/lib/supabase-browser"
+import { trackEvent } from "@/lib/trackEvent";
 
 type FormData = {
   professor: string
@@ -45,7 +46,7 @@ export default function Page() {
 
   useEffect(() => {
     setMounted(true)
-
+    trackEvent("page_view", { page: "home" });
     async function init() {
       try {
         const {
@@ -119,6 +120,20 @@ export default function Page() {
         return
       }
 
+      await trackEvent(
+  "generate_exam_started",
+  {
+    professor: form.professor,
+    escola: form.escolaFaculdade,
+    disciplina: form.disciplina,
+    serie: form.serie,
+    conteudo: form.conteudo,
+    quantidadeQuestoes: form.quantidadeQuestoes,
+    nivel: form.nivel,
+  },
+  session.user.id
+)
+
       const response = await fetch("/api/gerar", {
         method: "POST",
         headers: {
@@ -135,6 +150,20 @@ export default function Page() {
       }
 
       setSimuladoGerado(data.simulado || "")
+      
+      await trackEvent(
+  "generate_exam_success",
+  {
+    professor: data.meta.professor,
+    escola: data.meta.escolaFaculdade,
+    disciplina: data.meta.disciplina,
+    serie: data.meta.serie,
+    conteudo: data.meta.conteudo,
+    quantidadeQuestoes: data.meta.quantidadeQuestoes,
+    nivel: data.meta.nivel,
+  },
+  session.user.id
+)
 
       const novoRegistro: SimuladoGerado = {
         id: crypto.randomUUID(),
@@ -155,6 +184,14 @@ export default function Page() {
       setErroHistorico("")
     } catch (error) {
       console.error(error)
+
+      if (
+        error instanceof Error &&
+        error.message.includes("prova gratuita de hoje")
+      ) {
+          await trackEvent("daily_limit_reached", {}, usuario?.id)
+      }
+
       setErroGeracao(
         error instanceof Error ? error.message : "Ocorreu um erro ao gerar o simulado."
       )
@@ -176,6 +213,21 @@ export default function Page() {
         setErroGeracao("Você precisa estar logado para comprar uma prova extra.")
         return
       }
+await trackEvent("checkout_clicked", {}, session.user.id)
+
+await trackEvent(
+  "generate_exam_started",
+  {
+    professor: form.professor,
+    escola: form.escolaFaculdade,
+    disciplina: form.disciplina,
+    serie: form.serie,
+    conteudo: form.conteudo,
+    quantidadeQuestoes: form.quantidadeQuestoes,
+    nivel: form.nivel,
+  },
+  session.user.id
+)
 
       const ensureResponse = await fetch("/api/profile/ensure", {
         method: "POST",
@@ -483,19 +535,29 @@ export default function Page() {
                       resultado localizado
                     </p>
                     <h3 className="mt-1 text-lg font-black uppercase text-white">
-                      Simulação gerada
+                      Avaliação localizada
                     </h3>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() =>
-                      gerarProvaPDF({
-                        titulo: "Prova Secreta",
-                        simuladoTexto: simuladoGerado,
-                        nomeArquivo: `prova-${form.disciplina || "simulado"}.pdf`,
-                      })
-                    }
+                  onClick={async () => {
+                   await trackEvent(
+                    "pdf_downloaded",
+                     {
+                       disciplina: form.disciplina,
+                       professor: form.professor,
+                       escola: form.escolaFaculdade,
+                     },
+                     usuario?.id
+                   )
+
+                   gerarProvaPDF({
+                    titulo: "Prova Secreta",
+                    simuladoTexto: simuladoGerado,
+                    nomeArquivo: `prova-${form.disciplina || "simulado"}.pdf`,
+                  })
+                }}
                     className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-red-500/50 hover:bg-red-500/10"
                   >
                     Baixar PDF
